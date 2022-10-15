@@ -1,23 +1,35 @@
-use crc::{Crc, CRC_16_IBM_SDLC};
+use crc::{Crc, CRC_32_BZIP2};
 use std::collections::HashMap;
 use std::env::current_dir;
-use std::fs::metadata;
+use std::fs::{metadata, File};
+use std::io::{BufRead, BufReader};
 use walkdir::WalkDir;
-
-pub const X25: Crc<u16> = Crc::<u16>::new(&CRC_16_IBM_SDLC);
 
 fn main() -> Result<(), std::io::Error> {
     // simple hash map to store <hash as u16, full path to file as string>
-    let mut file_map: HashMap<u16, String> = HashMap::new();
+    let mut file_map: HashMap<u32, String> = HashMap::new();
 
     for entry in WalkDir::new(current_dir()?) {
         let entry = entry?;
         let path = entry.path().to_str().unwrap();
+        let hasher = Crc::<u32>::new(&CRC_32_BZIP2);
 
-        match std::fs::read(path) {
-            Ok(bytes) => {
-                // TODO: don't read the whole file into memory
-                let hash = X25.checksum(&bytes);
+        match File::open(path) {
+            Ok(file) => {
+                let mut reader = BufReader::new(file);
+                let mut digest = hasher.digest();
+
+                loop {
+                    let bytes = reader.fill_buf()?;
+
+                    if bytes.len() == 0 {
+                        break;
+                    }
+
+                    digest.update(&bytes);
+                }
+
+                let hash = digest.finalize();
 
                 if file_map.contains_key(&hash) {
                     // crc matches, but is this actually the same file?
@@ -28,14 +40,14 @@ fn main() -> Result<(), std::io::Error> {
                     let existing_file = metadata(existing_path)?;
 
                     if this_file.len() == existing_file.len() {
-                        println!("\n{} == {}: {:?}", path, existing_path, hash);
+                        println!("{}", existing_path);
                     }
                 }
 
                 file_map.insert(hash, String::from(path));
             }
             Err(_) => {}
-        };
+        }
     }
 
     Ok(())
