@@ -1,7 +1,7 @@
 use crc::{Crc, CRC_16_IBM_SDLC};
 use std::collections::HashMap;
 use std::env::current_dir;
-use std::fs::read_dir;
+use walkdir::WalkDir;
 
 pub const X25: Crc<u16> = Crc::<u16>::new(&CRC_16_IBM_SDLC);
 
@@ -9,9 +9,9 @@ fn main() -> Result<(), std::io::Error> {
     // simple hash map to store <hash as u16, full path to file as string>
     let mut file_map: HashMap<u16, String> = HashMap::new();
 
-    for entry in read_dir(current_dir()?)? {
-        let path_buf = entry?.path();
-        let path = path_buf.to_str().unwrap();
+    for entry in WalkDir::new(current_dir()?) {
+        let entry = entry?;
+        let path = entry.path().to_str().unwrap();
 
         match std::fs::read(path) {
             Ok(bytes) => {
