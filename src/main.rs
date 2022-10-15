@@ -1,6 +1,7 @@
 use crc::{Crc, CRC_16_IBM_SDLC};
 use std::collections::HashMap;
 use std::env::current_dir;
+use std::fs::metadata;
 use walkdir::WalkDir;
 
 pub const X25: Crc<u16> = Crc::<u16>::new(&CRC_16_IBM_SDLC);
@@ -18,14 +19,18 @@ fn main() -> Result<(), std::io::Error> {
                 // TODO: don't read the whole file into memory
                 let hash = X25.checksum(&bytes);
 
-                // TODO: only print if verbose is set
-                // TODO: print to stderr
-                println!("{}: {:?}", path, hash);
+                if file_map.contains_key(&hash) {
+                    // crc matches, but is this actually the same file?
+                    // let's check the file size
+                    let existing_path = file_map.get(&hash).unwrap();
 
-                // TODO: check if hash already exists, if it does, stat
-                // both files and check if they are really the same file
-                // under the assumption that the hash is going to collide
-                // often
+                    let this_file = metadata(path)?;
+                    let existing_file = metadata(existing_path)?;
+
+                    if this_file.len() == existing_file.len() {
+                        println!("\n{} == {}: {:?}", path, existing_path, hash);
+                    }
+                }
 
                 file_map.insert(hash, String::from(path));
             }
