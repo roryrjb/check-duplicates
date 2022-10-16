@@ -6,7 +6,7 @@ use std::io::{BufRead, BufReader};
 use walkdir::WalkDir;
 
 fn main() -> Result<(), std::io::Error> {
-    // simple hash map to store <hash as u16, full path to file as string>
+    // simple hash map to store <hash as u32, full path to file as string>
     let mut file_map: HashMap<u32, String> = HashMap::new();
 
     for entry in WalkDir::new(current_dir()?) {
