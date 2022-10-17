@@ -18,11 +18,14 @@ fn main() -> Result<(), std::io::Error> {
             Ok(file) => {
                 let mut reader = BufReader::new(file);
                 let mut digest = hasher.digest();
+                let capacity = reader.capacity();
 
                 loop {
-                    let bytes = reader.fill_buf()?;
 
-                    if bytes.len() == 0 {
+                    let bytes = reader.fill_buf()?;
+                    let bytes_read = bytes.len();
+
+                    if bytes_read == 0 || bytes_read <= capacity {
                         break;
                     }
 
@@ -40,7 +43,7 @@ fn main() -> Result<(), std::io::Error> {
                     let existing_file = metadata(existing_path)?;
 
                     if this_file.len() == existing_file.len() {
-                        println!("{}", existing_path);
+                        println!("{}", path);
                     }
                 }
 
