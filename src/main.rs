@@ -16,38 +16,42 @@ fn main() -> Result<(), std::io::Error> {
 
         match File::open(path) {
             Ok(file) => {
-                let mut reader = BufReader::new(file);
-                let mut digest = hasher.digest();
-                let capacity = reader.capacity();
+                let f = metadata(path)?;
+                let total_size = f.len() as usize;
 
-                loop {
+                if f.is_file() {
+                    let mut reader = BufReader::new(file);
+                    let mut digest = hasher.digest();
+                    let mut total_bytes_read: usize = 0;
 
-                    let bytes = reader.fill_buf()?;
-                    let bytes_read = bytes.len();
+                    while total_bytes_read < total_size {
+                        let bytes = reader.fill_buf()?;
+                        let bytes_read = bytes.len();
+                        total_bytes_read += bytes_read;
 
-                    if bytes_read == 0 || bytes_read <= capacity {
-                        break;
+                        if bytes_read == 0 {
+                            break;
+                        }
+
+                        digest.update(&bytes);
                     }
 
-                    digest.update(&bytes);
-                }
+                    let hash = digest.finalize();
 
-                let hash = digest.finalize();
+                    if file_map.contains_key(&hash) {
+                        // crc matches, but is this actually the same file?
+                        // let's check the file size
+                        let existing_path = file_map.get(&hash).unwrap();
 
-                if file_map.contains_key(&hash) {
-                    // crc matches, but is this actually the same file?
-                    // let's check the file size
-                    let existing_path = file_map.get(&hash).unwrap();
+                        let existing_file = metadata(existing_path)?;
 
-                    let this_file = metadata(path)?;
-                    let existing_file = metadata(existing_path)?;
-
-                    if this_file.len() == existing_file.len() {
-                        println!("{}", path);
+                        if f.len() == existing_file.len() {
+                            println!("{}", path);
+                        }
+                    } else {
+                        file_map.insert(hash, String::from(path));
                     }
                 }
-
-                file_map.insert(hash, String::from(path));
             }
             Err(_) => {}
         }
